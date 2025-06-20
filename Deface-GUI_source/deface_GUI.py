@@ -11,10 +11,7 @@ import imageio.v2 as iio
 from deface import deface as deface
 import QueueStreams as QS
 import threading
-
-
-#import Lib.deface as deface
-
+import mimetypes
 
 from Mainwindow import *
 
@@ -132,15 +129,21 @@ class MediaFile_t:
         self.FileNameNoExt:str=""
         self.Extension:str =""
         self.FileNameNoExt, self.Extension = os.path.splitext(self.FileName)
-        self.IsImage:bool = False
 
         video_container = av.open(FullPath)
         video_stream=next(s for s in video_container.streams if s.type == 'video')
         self.durationSeconds:float = float(video_stream.duration * video_stream.time_base) if video_stream is not None and video_stream.duration is not None else None
         aproxNFrames:int = video_stream.frames
         video_container.close()
+
+        filetype = mimetypes.guess_type(FullPath)[0]
+        self.IsImage:bool = (filetype.startswith("image"))
         
-        self.iioHandler = iio.imopen(FullPath, "r", plugin="pyav")
+        if not self.IsImage:
+            self.iioHandler = iio.imopen(FullPath, "r", plugin="pyav")
+        else:
+            self.iioHandler = iio.imopen(FullPath, "r")
+
         if(aproxNFrames is None or aproxNFrames == 0):
             self.NFrames:int = self.CountExactFrames(6)
         else:
@@ -148,9 +151,10 @@ class MediaFile_t:
 
         DEBUG(self.NFrames)
 
-        
         self.framerate:float = self.NFrames/self.durationSeconds if self.durationSeconds is not None else None
         self.CurrentFrameIndex:int = 0 
+        self.CurrentFrameCache = self.iioHandler.read(index=0)
+        DEBUG(self.CurrentFrameIndex)
         self.CurrentFrameCache = self.iioHandler.read(index=self.CurrentFrameIndex)
 
         self.width:int  = 0
@@ -190,18 +194,6 @@ class MediaFile_t:
                 else:
                     return self.CountExactFrames(digitPower-1,idx_old)
             
-                
-
-                
-
-
-        
-
-    
-    
-
-
-        
 
 
 
@@ -210,9 +202,8 @@ class MediaFile_t:
 DefaceOptions:DefaceOptions_t = DefaceOptions_t()
 MediaFile:MediaFile_t = None
 
-File_LastSelectedFolder:str = ""
-File_OpenedFilename:str = ""
-File_OpenedFilenameFull:str = ""
+File_LastSelectedFolder_Load:str = ""
+File_LastSelectedFolder_Save:str = ""
 
 centerface = deface.CenterFace(in_shape=None, backend='auto') #cached
 
@@ -242,7 +233,7 @@ stdout_thread = None
 deface_thread = None
 
 #Consts
-ADMITTED_FILE_EXTENSIONS_PATTERN="Video (*.mov *.avo *.mpg *.mp4 *.mkv *.wmv);;Any files (*)"
+ADMITTED_FILE_EXTENSIONS_PATTERN="Video (*.mov *.avo *.mpg *.mp4 *.mkv *.wmv);;Common images (*.jpg *.jpeg *.png *.tiff *.bmp);;Any files (*)"
 
 #--------------------------------------------------------------------------------------------
 ##BASIC UTIL FUNCTIONS
@@ -366,6 +357,9 @@ def FrameNum2SlideBar(FrameNum:int, MF:MediaFile_t, Slidebar=MainWindow.horizont
 
 def UpdateSlidebar(MF: MediaFile_t):
     global MainWindow
+    if(MF.IsImage):
+        return
+
     MainWindow.label_Preview_End.setText(seconds_to_hhmmssmm(MF.durationSeconds))
     MainWindow.label_Preview_End_Frame.setText(str(MF.NFrames-1))
     
@@ -525,16 +519,20 @@ def emulate_event_pushButtonLoadFile(filename):
     #Remember update warning and numpages
     global MainWindow
     global MediaFile
-    global File_LastSelectedFolder
-    global File_OpenedFileName
-    global File_OpenedFilenameFull
+    global File_LastSelectedFolder_Load
     global ADMITTED_FILE_EXTENSIONS_PATTERN
 
 
     if(filename == ""):
         return
+    
+    filetype = mimetypes.guess_type(filename)[0]
+    if(not (filetype.startswith("image") or filetype.startswith("video"))):
+        print("File type not accepted")
+        return
+
     MediaFile = MediaFile_t(filename)
-    File_LastSelectedFolder = MediaFile.Folder #remember folder
+    File_LastSelectedFolder_Load = MediaFile.Folder #remember folder
     MainWindow.lineEdit_OpenFile.setText(filename) #Write location up
 
     UpdateSlidebar(MediaFile)
@@ -545,8 +543,8 @@ def emulate_event_pushButtonLoadFile(filename):
 
     UpdateDisplayedFrame_NewFrame(MediaFile.CurrentFrameIndex)
     
-    DEBUG("File_LastSelectedFolder: " + File_LastSelectedFolder)
-    DEBUG("File_OpenedFileName: " + MediaFile.FullPath)
+    DEBUG("File_LastSelectedFolder_Load: " + File_LastSelectedFolder_Load)
+    DEBUG("MediaFile.FullPath: " + MediaFile.FullPath)
 
     
 def event_pushButtonLoadFile(): #Open PDF file
@@ -568,7 +566,8 @@ def event_pushButtonExport(): #Convert PDF with inserted pages and page reorderi
     global MainWindow
     global MediaFile
     global DefaceOptions
-    global FILE_LastSelectedFolder
+    global File_LastSelectedFolder_Load
+    global File_LastSelectedFolder_Save
     global ADMITTED_FILE_EXTENSIONS_PATTERN
 
     DEBUG("pushButtonConvert: pressed")
@@ -576,9 +575,12 @@ def event_pushButtonExport(): #Convert PDF with inserted pages and page reorderi
         print("ERROR: No file selected")
         return
     
-    fname = QFileDialog.getSaveFileName(None, "Export defaced media", os.path.join(File_LastSelectedFolder, MediaFile.FileNameNoExt + "_anonymized" + MediaFile.Extension), ADMITTED_FILE_EXTENSIONS_PATTERN)
+    if(File_LastSelectedFolder_Save == ""):
+        File_LastSelectedFolder_Save = File_LastSelectedFolder_Load
+
+    fname = QFileDialog.getSaveFileName(None, "Export defaced media", os.path.join(File_LastSelectedFolder_Save, MediaFile.FileNameNoExt + "_anonymized" + MediaFile.Extension), ADMITTED_FILE_EXTENSIONS_PATTERN)
     OutFilePath = fname[0]
-    FILE_LastSelectedFolder = os.path.dirname(OutFilePath)
+    File_LastSelectedFolder_Save = os.path.dirname(OutFilePath)
 
     CallDeface(DefaceOptions, MediaFile, OutFilePath)
     DEBUG("EXPORT FINISHED")
@@ -700,10 +702,14 @@ def event_spinBox_MosaicSize(newValue):
 
 def event_horizontalSlider_Preview_whileMoving(value):
     global MainWindow
+    global MediaFile
     DEBUG("MOVING")
     if(MediaFile is None):
         DEBUG("MediaFile is None")
         return
+    if(MediaFile.IsImage):
+        return
+    
     horizontalSlider_UpdateTextAndValues()
     
     MediaFile.UpdateCurrentFrame(SlideBar2FrameNum(MediaFile))
@@ -728,7 +734,8 @@ def event_spinBox_Preview_Current_Frame(value):
     if(MediaFile is None):
         DEBUG("MediaFile is None")
         return
-    
+    if(MediaFile.IsImage):
+        return
     SEMAPHORE_spinBox_ScrollBar_Preview =  True
     MainWindow.horizontalSlider_Preview.setValue(FrameNum2SlideBar(value, MediaFile))
     DEBUG("MOVED")

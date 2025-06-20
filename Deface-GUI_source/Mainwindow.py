@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 ################################################################################
-## Form generated from reading UI file 'MainwindowRPTHyu.ui'
+## Form generated from reading UI file 'MainwindowRHTrIc.ui'
 ##
 ## Created by: Qt User Interface Compiler version 5.15.2
 ##
@@ -17,7 +17,7 @@ class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         if not MainWindow.objectName():
             MainWindow.setObjectName(u"MainWindow")
-        MainWindow.resize(1306, 776)
+        MainWindow.resize(1306, 757)
         self.centralwidget = QWidget(MainWindow)
         self.centralwidget.setObjectName(u"centralwidget")
         self.tabWidget = QTabWidget(self.centralwidget)
@@ -446,7 +446,8 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"Deface GUI", None))
-        self.pushButton_LoadFile.setText(QCoreApplication.translate("MainWindow", u"LOAD VIDEO", None))
+        self.pushButton_LoadFile.setText(QCoreApplication.translate("MainWindow", u"LOAD VIDEO\n"
+"OR IMAGE", None))
         self.label_DetThresholdText.setText(QCoreApplication.translate("MainWindow", u"Detection threshold:", None))
         self.label_BlurrSizeText.setText(QCoreApplication.translate("MainWindow", u"Blurr size (relative):", None))
         self.pushButton_Export.setText(QCoreApplication.translate("MainWindow", u"EXPORT", None))
