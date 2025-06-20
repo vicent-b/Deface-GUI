@@ -21,7 +21,7 @@ from Mainwindow import *
 
 
 
-DebugMode:bool = True
+DebugMode:bool = False
 def DEBUG(content):
     if(not DebugMode):
         return
@@ -74,7 +74,6 @@ class DefaceOptions_t:
         self.BlurrMethodID:int = BlurrMethodID
         self.MosaicSize:int = MosaicSize
         self.dets_cache = None
-        DEBUG("DO_NEW")
     
     def set(self, DetectionThreshold:float = 0.2, BlurrSize:float = 1.3, RemoveAudioTracks:bool = False, Downscale:bool = False, DownscaleW:int = 1, DownscaleH:int = 1, BlurrShapeID:int = BlurrShape_t.ELLIPSE.value, BlurrMethodID:int = BlurrMethod_t.BLURR.value, MosaicSize:int=20):
         self.DetectionThreshold = DetectionThreshold
@@ -353,7 +352,6 @@ def SetDefaceOptions(DO: DefaceOptions_t):
     RadioButtonCollection_BlurrShape[DO.BlurrShapeID].setChecked(True)
     RadioButtonCollection_BlurrMethod[DO.BlurrMethodID].setChecked(True)
     MainWindow.spinBox_MosaicSize.setValue(DO.MosaicSize)
-    DEBUG("SETTED_DO")
     
 
 def SlideBar2FrameNum(MF:MediaFile_t, Slidebar=MainWindow.horizontalSlider_Preview):
@@ -792,13 +790,13 @@ def Init():
 
     ##Set LanguageID and correctly set all text
 
-    DEBUG("A")
+    DEBUG("GUI START")
     #OverloadStdout()
     #SHOW WINDOW
     #Test
     MainWindow.show()
     app.exec()
-    DEBUG("B")
+    DEBUG("PROGRAM ENDED")
 
 
 #=============================================================================================

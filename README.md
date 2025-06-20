@@ -1,10 +1,10 @@
 # Deface-GUI
-This projet is a GUI for mdraw's "deface" command line tool with frame-per-frame tools, allowing for automatic and quick face censoring form videos. Frame censoring may be necessary for activities such as transparently sharing video training data for Neural Nets or reporter activity without compromising passerby's privacy.
+This projet is a GUI for mdraw's "deface" command line tool with frame-per-frame tools, allowing for automatic and quick face censoring for videos. Frame censoring may be necessary for activities such as transparently sharing video training data for Neural Nets or reporter activity without compromising passerby's privacy.
 
-# Attributions:
-This program is just a GUI for the command tool deface by mdraw. You may find more projects on [https://github.com/vicent-b]
+## Attributions:
+This program is just a GUI for the command tool [deface](https://github.com/ORB-HD/deface/) by mdraw. You may find more projects on [https://github.com/vicent-b](https://github.com/vicent-b).
 
-# Information:
+## Information:
 You may upload a single video or an image. The image on the right shows the conversion of a given image or video frame (that may be changed using the slider), while also showing the face detection confidence.
 The autoconvert button (soon to come) allows to select a bunch of files and convert them quickly with the current settings.
 The algorithm looks for faces within each image/frame and dettects them with a given confidence (0->1). They are blurred only if the confidence is above the chosen threshold. By changing the threshold you may elliminate false negatives (faces not detected as such) while minimising false positives (non-faces dettected as faces).
@@ -14,8 +14,8 @@ Blurr method and size may also be chosen. Click export to export the video or im
 
 
 
-# Installation and GPU acceleration guide
-## Windows
+## Installation and GPU acceleration guide
+### Windows
 In order to use the program, you need to install the Python programming language interpreter from its [webpage](www.python.org). 
 
 It is important to select the option "Add python.exe to PATH". This adds the program location to the PATH variable, which windows uses to search for important files or programs
@@ -40,7 +40,7 @@ pip install onnx onnxruntime-gpu
 
 To ensure the graphics card is being used instead of the CPU, use the Task Manager when processing a file
 
-Finally, download the whole folder and open (run) "deface_GUI.py" with Python
+Finally, download the whole folder and open (run) "deface_GUI.py" with Python.
 
-## Linux
-Let's be frank: I trust you are tech savvy enough to install Python and the listed dependencies for Windows users
+### Linux
+Let's be frank: I trust you are tech savvy enough to install Python and the listed dependencies for Windows users.
