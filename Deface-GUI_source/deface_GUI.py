@@ -272,13 +272,6 @@ def ImageIO_to_QImage(image):
 
     raise ValueError(f"Unsupported image format with shape: {image.shape}")
 
-def VideoGetFrame(video, N:int):
-    frame = None
-    return frame
-
-
-def VideoGetRes(video):
-    return 0
 
 #--------------------------------------------------------------------------------------------
 ##BASIC GUI FUNCTIONS
@@ -360,50 +353,45 @@ def FrameNum2SlideBar(FrameNum:int, MF:MediaFile_t, Slidebar=MainWindow.horizont
 
 def UpdateSlidebar(MF: MediaFile_t):
     global MainWindow
+    
     if(MF.IsImage):
-        return
+        MainWindow.label_Preview_End.setText("ff:ff:ff")
+        MainWindow.label_Preview_End_Frame.setText(str(MF.NFrames-1))
 
-    MainWindow.label_Preview_End.setText(seconds_to_hhmmssmm(MF.durationSeconds))
-    MainWindow.label_Preview_End_Frame.setText(str(MF.NFrames-1))
-    
-    MainWindow.horizontalSlider_Preview.setValue(0)
-    MainWindow.horizontalSlider_Preview.setMinimum(0)
-    MainWindow.horizontalSlider_Preview.setMaximum(MF.durationSeconds*2)
+        MainWindow.horizontalSlider_Preview.setValue(0)      #not needed really
+        MainWindow.horizontalSlider_Preview.setMinimum(0)
+        MainWindow.horizontalSlider_Preview.setMaximum(1000) #default
 
+
+        MainWindow.label_Preview_Current.setText("xx:xx:xx")
+
+    else: #if is video
+
+        MainWindow.label_Preview_End.setText(seconds_to_hhmmssmm(MF.durationSeconds))
+        MainWindow.label_Preview_End_Frame.setText(str(MF.NFrames-1))
     
-    MainWindow.label_Preview_Current.setText(seconds_to_hhmmssmm(framenum2Seconds(MF.CurrentFrameIndex, MF)))
+        MainWindow.horizontalSlider_Preview.setValue(0)       #not needed really
+        MainWindow.horizontalSlider_Preview.setMinimum(0)
+        MainWindow.horizontalSlider_Preview.setMaximum(MF.durationSeconds*2)
+        
+        MainWindow.label_Preview_Current.setText(seconds_to_hhmmssmm(framenum2Seconds(MF.CurrentFrameIndex, MF)))
+
     MainWindow.spinBox_Preview_Current_Frame.setValue(MF.CurrentFrameIndex)
     MainWindow.spinBox_Preview_Current_Frame.setMaximum(MF.NFrames-1)
 
     DEBUG("SlidebarUpdated")   
 
+
+
 def DisplayCurrentResolution(W:int,H:int):
     global MainWindow
     MainWindow.lineEdit_OriginalRes.setText(str(W)+" x "+str(H))
 
-def DisplayQImage(qimage, scale=1):
+
+def DisplayQImage(qimage):
     global MainWindow
-    scale=1
-    """
-    GV = MainWindow.graphicsView_Preview
-    GV.setSceneRect(0,0,GV.width()*scale,GV.height()*scale)
-
-
-    pixmap = QPixmap.fromImage(qimage)
-    scene = QGraphicsScene()
-    scene.setSceneRect(GV.sceneRect())
-    pixmap=pixmap.scaledToWidth(GV.width()*scale)
-    pixmap_item = QGraphicsPixmapItem(pixmap)
-    pixmap_item.setPos(0, 0)
     
-    scene.addItem(pixmap_item)
-    GV.setScene(scene)
-    DEBUG(pixmap_item.pos())
-    GV.fitInView(pixmap_item, Qt.KeepAspectRatio)
-    """
     GV = MainWindow.graphicsView_Preview
-
-
     pixmap = QPixmap.fromImage(qimage)
     GV.setSceneRect(0,0,pixmap.width(), pixmap.height())
     scene = QGraphicsScene()
