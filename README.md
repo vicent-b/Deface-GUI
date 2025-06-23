@@ -1,6 +1,10 @@
 # Deface-GUI
 This projet is a GUI for mdraw's "deface" command line tool with frame-per-frame tools, allowing for automatic and quick face censoring for videos. Frame censoring may be necessary for activities such as transparently sharing video training data for Neural Nets or reporter activity without compromising passerby's privacy.
 
+![GUI example image](Images/Usage_example.png)
+*Image showing the GUI. Video downloaded from pexels.com: [https://www.pexels.com/video/bustling-day-on-istanbul-s-bosphorus-shoreline-32644379/](https://www.pexels.com/video/bustling-day-on-istanbul-s-bosphorus-shoreline-32644379/)*
+
+
 ## Attributions:
 This program is just a GUI for the command tool [deface](https://github.com/ORB-HD/deface/) by mdraw. You may find more projects on [https://github.com/vicent-b](https://github.com/vicent-b).
 

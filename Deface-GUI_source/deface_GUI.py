@@ -210,6 +210,9 @@ centerface = deface.CenterFace(in_shape=None, backend='auto') #cached
 #window
 app=QApplication()
 MainWindow=myQtApp_MainWindow()
+try: MainWindow.setWindowIcon(QIcon("./Icon/Icon1-16x16-24x24-32x32-48x48-256x256.ico"))
+except: None
+
 
 RadioButtonCollection_BlurrShape=[
     MainWindow.radioButton_BlurrShape_Ellipse,
