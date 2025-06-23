@@ -14,7 +14,7 @@ import threading
 import mimetypes
 
 from Mainwindow import *
-
+from ZoomHandler import *
 
 
 
@@ -226,6 +226,9 @@ RadioButtonCollection_BlurrMethod=[
     MainWindow.radioButton_BlurrMethod_Solid
     ]
 
+zoom_handler = ZoomHandler(MainWindow.graphicsView_Preview) #.reset() will be called later
+zoom_handler.engage()
+
 #thread coordination
 SEMAPHORE_spinBox_ScrollBar_Preview:bool = False #When frame number is edited, slider value is changed. When slider moves, new frame number is displayed. This semaphore ensures framenumber is not edited again when slider is changed is
 
@@ -388,8 +391,9 @@ def DisplayCurrentResolution(W:int,H:int):
     MainWindow.lineEdit_OriginalRes.setText(str(W)+" x "+str(H))
 
 
-def DisplayQImage(qimage):
+def DisplayQImage(qimage, size_changed:bool = True):
     global MainWindow
+    global zoom_handler
     
     GV = MainWindow.graphicsView_Preview
     pixmap = QPixmap.fromImage(qimage)
@@ -402,8 +406,11 @@ def DisplayQImage(qimage):
     scene.addItem(pixmap_item)
     GV.setScene(scene)
     DEBUG(pixmap_item.pos())
-    GV.fitInView(pixmap_item, Qt.KeepAspectRatio)
 
+    if(size_changed):
+        GV.fitInView(pixmap_item, Qt.KeepAspectRatio)
+        zoom_handler.reset(GV)
+        zoom_handler.setEnabled(True)
 
 
 def DisplayedImageScale(scale):
@@ -415,9 +422,26 @@ def DisplayedImageScale(scale):
     GV.scale(scale,scale)
 
 
-def DisplayIioImage(iioimage):
+def DisplayIioImage(iioimage, size_changed:bool = True):
     qimage = ImageIO_to_QImage(iioimage)
-    DisplayQImage(qimage)
+    DisplayQImage(qimage, size_changed)
+
+def DisplayTextImage(text_HTML:str, textColor:QColor = QColor(160,160,160)):
+    global MainWindow
+    global zoom_handler
+    screenText = QGraphicsTextItem()
+    screenText.setHtml(text_HTML)
+    screenText.adjustSize() #requiered for it to have an alignment if requested
+    screenText.setDefaultTextColor(textColor)
+    screenText_Scene= QGraphicsScene()
+    MainWindow.graphicsView_Preview.setSceneRect(screenText.boundingRect())
+    screenText_Scene.setSceneRect(MainWindow.graphicsView_Preview.sceneRect())
+    screenText_Scene.addItem(screenText)
+    MainWindow.graphicsView_Preview.setScene(screenText_Scene)
+    MainWindow.graphicsView_Preview.fitInView(screenText, Qt.KeepAspectRatio)
+    
+    zoom_handler.reset(MainWindow.graphicsView_Preview)
+    zoom_handler.setEnabled(True)
 
 #--------------------------------------------------------------------------------------------
 ##COMPLEX FUNCTIONS
@@ -475,16 +499,26 @@ def UpdateDisplayedFrame_SameFrameNewParams(sameThreshold=False):
     if(MediaFile is None):
         return
     newFrame = AnonimizeFrame(MediaFile.CurrentFrameCache, DefaceOptions, True, DefaceOptions.dets_cache if sameThreshold else None)
-    DisplayIioImage(newFrame)
+    DisplayIioImage(newFrame, False)
     DEBUG("FrameUpdated")
 
-def UpdateDisplayedFrame_NewFrame(frameNum:int):
+def UpdateDisplayedFrame_NewFrameSameFile(frameNum:int):
     global MediaFile
     if(MediaFile is None):
         return
     MediaFile.UpdateCurrentFrame(frameNum)
-    UpdateDisplayedFrame_SameFrameNewParams()
+    newFrame = AnonimizeFrame(MediaFile.CurrentFrameCache, DefaceOptions, True, None)
+    DisplayIioImage(newFrame, False)
     DEBUG("FrameChanged")
+
+def UpdateDisplayedFrame_NewFrameNewFile(frameNum:int):
+    global MediaFile
+    if(MediaFile is None):
+        return
+    MediaFile.UpdateCurrentFrame(frameNum)
+    newFrame = AnonimizeFrame(MediaFile.CurrentFrameCache, DefaceOptions, True, None)
+    DisplayIioImage(newFrame, True)
+    DEBUG("File and frame changed")
 
 def horizontalSlider_UpdateTextAndValues():
     global MainWindow
@@ -532,7 +566,7 @@ def emulate_event_pushButtonLoadFile(filename):
     MainWindow.spinBox_NewResW.setValue(MediaFile.width)
     MainWindow.spinBox_NewResH.setValue(MediaFile.height)
 
-    UpdateDisplayedFrame_NewFrame(MediaFile.CurrentFrameIndex)
+    UpdateDisplayedFrame_NewFrameNewFile(MediaFile.CurrentFrameIndex)
     
     DEBUG("File_LastSelectedFolder_Load: " + File_LastSelectedFolder_Load)
     DEBUG("MediaFile.FullPath: " + MediaFile.FullPath)
@@ -704,8 +738,8 @@ def event_horizontalSlider_Preview_whileMoving(value):
     horizontalSlider_UpdateTextAndValues()
     
     MediaFile.UpdateCurrentFrame(SlideBar2FrameNum(MediaFile))
-    DisplayIioImage(MediaFile.CurrentFrameCache)
-    #UpdateDisplayedFrame_NewFrame(SlideBar2FrameNum(MediaFile))
+    DisplayIioImage(MediaFile.CurrentFrameCache, False)
+    #UpdateDisplayedFrame_NewFrameSameFile(SlideBar2FrameNum(MediaFile)) #lines above display new frame without processing it for deface, as processing it while moving creates lag
     
 
 def event_horizontalSlider_Preview_afterMoving(value):
@@ -716,7 +750,7 @@ def event_horizontalSlider_Preview_afterMoving(value):
         DEBUG("MediaFile is None")
         return
     horizontalSlider_UpdateTextAndValues()
-    UpdateDisplayedFrame_NewFrame(SlideBar2FrameNum(MediaFile))
+    UpdateDisplayedFrame_NewFrameSameFile(SlideBar2FrameNum(MediaFile))
     
 def event_spinBox_Preview_Current_Frame(value):
     global MainWindow
@@ -739,6 +773,7 @@ def Init():
     global RadioButtonCollection_BlurrMethod
     global DefaceOptions
     global MediaFile
+    global zoom_handler
 
     #Precalculate global variables
     
@@ -788,11 +823,25 @@ def Init():
 
     ##Set LanguageID and correctly set all text
 
+
+
+
     DEBUG("GUI START")
     #OverloadStdout()
     #SHOW WINDOW
     #Test
     MainWindow.show()
+
+    #Set default image view
+    DisplayTextImage("""
+    <div align="center">
+      <p>Use Control + mouse wheel for zooming</p>
+      <p>Double click left to reset zoom</p>
+    </div>
+    """)
+
+
+
     app.exec()
     DEBUG("PROGRAM ENDED")
 
