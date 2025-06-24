@@ -3,7 +3,6 @@ import sys
 from enum import Enum
 import math
 import datetime
-import numpy as np
 import av
 import imageio.v2 as iio
 #import Lib.deface as deface #important to import as just deface, otherwise recursive calls within the package fail
@@ -14,7 +13,7 @@ import threading
 import mimetypes
 
 from Mainwindow import *
-from ZoomHandler import *
+from DisplayManager import *
 
 
 
@@ -226,8 +225,7 @@ RadioButtonCollection_BlurrMethod=[
     MainWindow.radioButton_BlurrMethod_Solid
     ]
 
-zoom_handler = ZoomHandler(MainWindow.graphicsView_Preview) #.reset() will be called later
-zoom_handler.engage()
+Displayer = DisplayManager(MainWindow.graphicsView_Preview)
 
 #thread coordination
 SEMAPHORE_spinBox_ScrollBar_Preview:bool = False #When frame number is edited, slider value is changed. When slider moves, new frame number is displayed. This semaphore ensures framenumber is not edited again when slider is changed is
@@ -249,31 +247,6 @@ def framenum2Seconds(NFrame, MF:MediaFile_t):
 
 def seconds_to_hhmmssmm(sec):
     return str(datetime.timedelta(seconds=sec))
-
-
-def ImageIO_to_QImage(image):
-    #Convert imageio (NumPy) image to QImage, supporting grayscale, RGB, RGBA.
-
-    if image.ndim == 2: #GRAYSCALE
-        # Grayscale
-        height, width = image.shape
-        image = np.require(image, np.uint8, 'C')
-        return QImage(image.data, width, height, width, QImage.Format_Grayscale8)
-
-    elif image.ndim == 3: #RGB/RGBA
-        height, width, channels = image.shape
-        image = np.require(image, np.uint8, 'C')
-
-        if channels == 3:
-            # RGB
-            bytes_per_line = 3 * width
-            return QImage(image.data, width, height, bytes_per_line, QImage.Format_RGB888)
-        elif channels == 4:
-            # RGBA
-            bytes_per_line = 4 * width
-            return QImage(image.data, width, height, bytes_per_line, QImage.Format_RGBA8888)
-
-    raise ValueError(f"Unsupported image format with shape: {image.shape}")
 
 
 #--------------------------------------------------------------------------------------------
@@ -391,58 +364,6 @@ def DisplayCurrentResolution(W:int,H:int):
     MainWindow.lineEdit_OriginalRes.setText(str(W)+" x "+str(H))
 
 
-def DisplayQImage(qimage, size_changed:bool = True):
-    global MainWindow
-    global zoom_handler
-    
-    GV = MainWindow.graphicsView_Preview
-    pixmap = QPixmap.fromImage(qimage)
-    GV.setSceneRect(0,0,pixmap.width(), pixmap.height())
-    scene = QGraphicsScene()
-    scene.setSceneRect(GV.sceneRect())
-    pixmap_item = QGraphicsPixmapItem(pixmap)
-    pixmap_item.setPos(0, 0)
-    
-    scene.addItem(pixmap_item)
-    GV.setScene(scene)
-    DEBUG(pixmap_item.pos())
-
-    if(size_changed):
-        GV.fitInView(pixmap_item, Qt.KeepAspectRatio)
-        zoom_handler.reset(GV)
-        zoom_handler.setEnabled(True)
-
-
-def DisplayedImageScale(scale):
-    global MainWindow
-    GV = MainWindow.graphicsView_Preview
-    #GV.setSceneRect(0,0,GV.width()*scale,GV.height()*scale)
-    #GV.scene().scaledToWidth(GV.width()*scale)
-    #GV.scene().setSceneRect(GV.sceneRect())
-    GV.scale(scale,scale)
-
-
-def DisplayIioImage(iioimage, size_changed:bool = True):
-    qimage = ImageIO_to_QImage(iioimage)
-    DisplayQImage(qimage, size_changed)
-
-def DisplayTextImage(text_HTML:str, textColor:QColor = QColor(160,160,160)):
-    global MainWindow
-    global zoom_handler
-    screenText = QGraphicsTextItem()
-    screenText.setHtml(text_HTML)
-    screenText.adjustSize() #requiered for it to have an alignment if requested
-    screenText.setDefaultTextColor(textColor)
-    screenText_Scene= QGraphicsScene()
-    MainWindow.graphicsView_Preview.setSceneRect(screenText.boundingRect())
-    screenText_Scene.setSceneRect(MainWindow.graphicsView_Preview.sceneRect())
-    screenText_Scene.addItem(screenText)
-    MainWindow.graphicsView_Preview.setScene(screenText_Scene)
-    MainWindow.graphicsView_Preview.fitInView(screenText, Qt.KeepAspectRatio)
-    
-    zoom_handler.reset(MainWindow.graphicsView_Preview)
-    zoom_handler.setEnabled(True)
-
 #--------------------------------------------------------------------------------------------
 ##COMPLEX FUNCTIONS
 
@@ -496,28 +417,31 @@ def CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
 def UpdateDisplayedFrame_SameFrameNewParams(sameThreshold=False):
     global DefaceOptions
     global MediaFile
+    global Displayer
     if(MediaFile is None):
         return
     newFrame = AnonimizeFrame(MediaFile.CurrentFrameCache, DefaceOptions, True, DefaceOptions.dets_cache if sameThreshold else None)
-    DisplayIioImage(newFrame, False)
+    Displayer.DisplayIioImage(newFrame, False)
     DEBUG("FrameUpdated")
 
 def UpdateDisplayedFrame_NewFrameSameFile(frameNum:int):
     global MediaFile
+    global Displayer
     if(MediaFile is None):
         return
     MediaFile.UpdateCurrentFrame(frameNum)
     newFrame = AnonimizeFrame(MediaFile.CurrentFrameCache, DefaceOptions, True, None)
-    DisplayIioImage(newFrame, False)
+    Displayer.DisplayIioImage(newFrame, False)
     DEBUG("FrameChanged")
 
 def UpdateDisplayedFrame_NewFrameNewFile(frameNum:int):
     global MediaFile
+    global Displayer
     if(MediaFile is None):
         return
     MediaFile.UpdateCurrentFrame(frameNum)
     newFrame = AnonimizeFrame(MediaFile.CurrentFrameCache, DefaceOptions, True, None)
-    DisplayIioImage(newFrame, True)
+    Displayer.DisplayIioImage(newFrame, True)
     DEBUG("File and frame changed")
 
 def horizontalSlider_UpdateTextAndValues():
@@ -728,6 +652,7 @@ def event_spinBox_MosaicSize(newValue):
 def event_horizontalSlider_Preview_whileMoving(value):
     global MainWindow
     global MediaFile
+    global Displayer
     DEBUG("MOVING")
     if(MediaFile is None):
         DEBUG("MediaFile is None")
@@ -738,7 +663,7 @@ def event_horizontalSlider_Preview_whileMoving(value):
     horizontalSlider_UpdateTextAndValues()
     
     MediaFile.UpdateCurrentFrame(SlideBar2FrameNum(MediaFile))
-    DisplayIioImage(MediaFile.CurrentFrameCache, False)
+    Displayer.DisplayIioImage(MediaFile.CurrentFrameCache, False)
     #UpdateDisplayedFrame_NewFrameSameFile(SlideBar2FrameNum(MediaFile)) #lines above display new frame without processing it for deface, as processing it while moving creates lag
     
 
@@ -773,7 +698,7 @@ def Init():
     global RadioButtonCollection_BlurrMethod
     global DefaceOptions
     global MediaFile
-    global zoom_handler
+    global Displayer
 
     #Precalculate global variables
     
@@ -833,7 +758,7 @@ def Init():
     MainWindow.show()
 
     #Set default image view
-    DisplayTextImage("""
+    Displayer.DisplayTextImage("""
     <div align="center">
       <p>Use Control + mouse wheel for zooming</p>
       <p>Double click left to reset zoom</p>
