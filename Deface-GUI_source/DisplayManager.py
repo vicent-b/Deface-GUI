@@ -1,15 +1,26 @@
 from PySide6.QtCore import *
 from PySide6.QtGui import *
 from PySide6.QtWidgets import *
+from PySide6.QtOpenGLWidgets import QOpenGLWidget
 from ZoomHandler import *
 import numpy as np
 
 class DisplayManager():
 
-    def __init__(self, view:QGraphicsView):
+    def __init__(self, view:QGraphicsView, useOpenGL:bool = False): #OpenGL is False as default, as ZoomHandler breaks
         self.view:QGraphicsview = view
         self.zoom_handler:ZoomHandler = ZoomHandler(view)
         self.zoom_handler.engage() #.reset() will be called later
+
+        self.scene_cache:QGraphicsScene = None
+        self.pixmapItem_cache:QPixmap   = None
+
+        if(useOpenGL):
+            try:
+                view.setViewport(QOpenGLWidget())
+                print("Open GL used successfully")
+            except:
+                print("Error: Open GL could not be used to optimize display")
 
 
     def ImageIO_to_QImage(self, image):
@@ -38,21 +49,37 @@ class DisplayManager():
 
 
     def DisplayQImage(self, qimage, image_size_changed:bool = True):
+        self.view.setUpdatesEnabled(False)
 
         pixmap = QPixmap.fromImage(qimage)
-        self.view.setSceneRect(0,0,pixmap.width(), pixmap.height())
-        scene = QGraphicsScene()
-        scene.setSceneRect(self.view.sceneRect())
-        pixmap_item = QGraphicsPixmapItem(pixmap)
-        pixmap_item.setPos(0, 0)
 
-        scene.addItem(pixmap_item)
-        self.view.setScene(scene)
+        self.view.setSceneRect(0,0,pixmap.width(), pixmap.height())
+
+        #reuse old QGraphicsScene if same size
+        if(self.scene_cache is None or image_size_changed):
+            self.scene_cache = QGraphicsScene()
+            self.scene_cache.setSceneRect(self.view.sceneRect())
+        else:
+            self.scene_cache.clear() #clear all items
+        
+        #reuse old QPixmapItem if same size
+        if(self.pixmapItem_cache is not None or image_size_changed): #Not sure if second part is necessary    
+            self.pixmapItem_cache = QGraphicsPixmapItem()
+            self.pixmapItem_cache.setPos(0, 0)
+        
+        self.pixmapItem_cache.setPixmap(pixmap)
+
+
+        self.scene_cache.addItem(self.pixmapItem_cache)
+        self.view.setScene(self.scene_cache)
 
         if(image_size_changed):
-            self.view.fitInView(pixmap_item, Qt.KeepAspectRatio)
-            self.zoom_handler.reset(self.view)
+            self.view.fitInView(self.pixmapItem_cache, Qt.KeepAspectRatio) #Fullscreen it
+            self.zoom_handler.reset(self.view) #Reset zoom handler to new image
             self.zoom_handler.setEnabled(True)
+        
+        self.view.setUpdatesEnabled(True)
+        #self.view.update() #does not seem necessary. Updates anyway
 
 
     def DisplayIioImage(self, iioimage, image_size_changed:bool = True):
