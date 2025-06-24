@@ -117,6 +117,15 @@ class DefaceOptions_t:
             varArray.append(str(self.MosaicSize))
         
         return varArray
+    
+    def generateOptionsString(self):
+        varArray=self.generateOptionsStringArray()
+        varString:str=""
+
+        for s in varArray:
+            varString = varString + " "+"\""+s+"\""
+        
+        return varString
 
 
 
@@ -393,6 +402,8 @@ def AnonimizeFrame(frame, DO:DefaceOptions_t, DrawScores:bool, dets=None):
 def CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
     global deface_thread
     DEBUG("FILE CONVERTING")
+    
+    """
     callOptions = [MediaFile.FullPath]
     callOptions.extend(DO.generateOptionsStringArray())
 
@@ -407,7 +418,14 @@ def CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
     #deface_thread = threading.Thread(target = lambda:deface.main(), daemon=True) #don't overload editor thread
     deface.main()
     sys.arg = sysArgv_stored #recover original argv
-
+    """
+    #Previous method had unresolved bug: after processing a video, another video could not be opened
+    defacecall = "deface " + " \""+MediaFile.FullPath+"\" " + DO.generateOptionsString()
+    if(OutFilePath != ""):
+        defacecall = defacecall + " --output "+" \""+OutFilePath+"\" "
+    
+    print(">> "+defacecall)
+    os.system(defacecall)
 
     DEBUG("FILE CONVERTED")
 
@@ -773,4 +791,5 @@ def Init():
 
 #=============================================================================================
 
-Init()
+if __name__ == '__main__':
+    Init()
