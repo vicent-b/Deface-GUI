@@ -9,7 +9,6 @@ import imageio.v2 as iio
 #import deface.deface as deface
 from deface import deface as deface
 import QueueStreams as QS
-import threading
 import mimetypes
 
 from Mainwindow import *
@@ -56,6 +55,15 @@ class BlurrMethod_t(Enum):
     BLURR = 1
     MOSAIC = 2
     SOLID_BLACK = 3
+
+
+class Worker(QThread):
+    def __init__(self, fcn):
+        super().__init__()
+        self.fcn=fcn
+    
+    def run(self):
+        self.fcn()
 
 
 class DefaceOptions_t:
@@ -429,6 +437,19 @@ def CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
 
     DEBUG("FILE CONVERTED")
 
+
+def Threaded_CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
+    global deface_thread
+    if(deface_thread is not None and deface_thread.isRunning() and not deface_thread.isFinished()):
+        print("\nPlease, wait for Deface to finish processing the previous file")
+        return
+
+    thread_fcn = lambda:CallDeface(DO, MF, OutFilePath)
+    deface_thread = Worker(thread_fcn) #don't overload editor thread
+    deface_thread.start()
+    DEBUG("DEFACE THREAD STARTED")
+
+
 ##--------------------------------------------------------------------------------------------
 ##GUI EVENTS (COMMON CODE)
 
@@ -514,7 +535,7 @@ def emulate_event_pushButtonLoadFile(filename):
     DEBUG("MediaFile.FullPath: " + MediaFile.FullPath)
 
     
-def event_pushButtonLoadFile(): #Open PDF file
+def event_pushButtonLoadFile(): 
     #Remember update warning and numpages
 
     DEBUG("pushButtonLoad: pressed");
@@ -529,7 +550,8 @@ def event_pushButtonLoadFile(): #Open PDF file
     emulate_event_pushButtonLoadFile(filename)
 
 
-def event_pushButtonExport(): #Convert PDF with inserted pages and page reordering afterwards
+def event_pushButtonExport():
+    global deface_thread
     global MainWindow
     global MediaFile
     global DefaceOptions
@@ -542,6 +564,10 @@ def event_pushButtonExport(): #Convert PDF with inserted pages and page reorderi
         print("ERROR: No file selected")
         return
     
+    if(deface_thread is not None and deface_thread.isRunning() and not deface_thread.isFinished()):
+        print("\nPlease, wait for Deface to finish processing the previous file")
+        return
+    
     if(File_LastSelectedFolder_Save == ""):
         File_LastSelectedFolder_Save = File_LastSelectedFolder_Load
 
@@ -549,7 +575,7 @@ def event_pushButtonExport(): #Convert PDF with inserted pages and page reorderi
     OutFilePath = fname[0]
     File_LastSelectedFolder_Save = os.path.dirname(OutFilePath)
 
-    CallDeface(DefaceOptions, MediaFile, OutFilePath)
+    Threaded_CallDeface(DefaceOptions, MediaFile, OutFilePath)
     DEBUG("EXPORT FINISHED")
 
 
@@ -711,6 +737,7 @@ def event_spinBox_Preview_Current_Frame(value):
 #---------------------------------------------------------------------------------------------
 
 def Init():
+    global deface_thread
     global MainWindow
     global RadioButtonCollection_BlurrShape
     global RadioButtonCollection_BlurrMethod
@@ -783,10 +810,12 @@ def Init():
     </div>
     """)
 
-
-
     app.exec()
+
+    deface_thread.wait()
+
     DEBUG("PROGRAM ENDED")
+
 
 
 #=============================================================================================
