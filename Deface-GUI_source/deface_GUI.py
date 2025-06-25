@@ -812,7 +812,8 @@ def Init():
 
     app.exec()
 
-    deface_thread.wait()
+    if (deface_thread is not None):
+        deface_thread.wait()
 
     DEBUG("PROGRAM ENDED")
 
