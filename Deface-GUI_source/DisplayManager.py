@@ -7,20 +7,26 @@ import numpy as np
 
 class DisplayManager():
 
-    def __init__(self, view:QGraphicsView, useOpenGL:bool = False): #OpenGL is False as default, as ZoomHandler breaks
+    def __init__(self, view:QGraphicsView, useOpenGL:bool = True):
         self.view:QGraphicsview = view
-        self.zoom_handler:ZoomHandler = ZoomHandler(view)
-        self.zoom_handler.engage() #.reset() will be called later
 
         self.scene_cache:QGraphicsScene = None
         self.pixmapItem_cache:QPixmap   = None
 
+        self.usesOpenGL:bool = False #update in if
+
         if(useOpenGL):
             try:
                 view.setViewport(QOpenGLWidget())
+                self.usesOpenGL:bool = True
+                view.setBackgroundBrush(QColor(243,243,243))
                 print("Open GL used successfully")
             except:
                 print("Error: Open GL could not be used to optimize display")
+                self.usesOpenGL = False
+        
+        self.zoom_handler:ZoomHandler = ZoomHandler(view)
+        self.zoom_handler.engage() #.reset() will be called later #event filter must be set to viewport AFTER viewport is changed to OpenGL
 
 
     def ImageIO_to_QImage(self, image):
