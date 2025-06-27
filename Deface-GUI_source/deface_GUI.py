@@ -149,7 +149,10 @@ class MediaFile_t:
         video_container = av.open(FullPath)
         video_stream=next(s for s in video_container.streams if s.type == 'video')
         self.durationSeconds:float = float(video_stream.duration * video_stream.time_base) if video_stream is not None and video_stream.duration is not None else None
+        
         aproxNFrames:int = video_stream.frames
+        if (aproxNFrames == 0 and video_stream.average_rate is not None):
+            aproxNFrames == self.durationSeconds*video_stream.average_rate
         video_container.close()
 
         filetype = mimetypes.guess_type(FullPath)[0]
@@ -160,18 +163,40 @@ class MediaFile_t:
         else:
             self.iioHandler = iio.imopen(FullPath, "r")
 
-        if(aproxNFrames is None or aproxNFrames == 0):
-            self.NFrames:int = self.CountExactFrames(6)
+        #DEPRECATED: Only useful for files that support random access to frames. This is not usuallythe case, this is why it has been substituted by loading the hole file onto RAM
+        #if(aproxNFrames is None or aproxNFrames == 0):
+        #    self.NFrames:int = self.CountExactFrames(6)
+        #else:
+        #    self.NFrames:int = self.CountExactFrames(math.floor(math.log(aproxNFrames, 5)))
+
+        self.iioArray=[]
+        if(self.IsImage):
+            self.iioArray = [self.iioHandler.read()]
         else:
-            self.NFrames:int = self.CountExactFrames(math.floor(math.log(aproxNFrames, 5)))
+            #self.iioArray =  self.iioHandler.read()
+            aproxNFramesStr:str = str(aproxNFrames) if aproxNFrames is not None and aproxNFrames > 0 else "???"
+            sys.stdout.write("\n")
+            i=1
+            for frame in self.iioHandler.iter():
+                self.iioArray.append(frame)
+                if(i==1 or i%10==0):
+                    sys.stdout.write("\r LOADING FRAMES: "+str(i)+" / "+aproxNFramesStr)
+                i=i+1
+        
+        self.NFrames:int = len(self.iioArray)
+
+        if(not self.IsImage):
+            sys.stdout.write("\r LOADING FRAMES: "+str(self.NFrames)+" / "+str(self.NFrames))
 
         DEBUG(self.NFrames)
 
         self.framerate:float = self.NFrames/self.durationSeconds if self.durationSeconds is not None else None
         self.CurrentFrameIndex:int = 0 
-        self.CurrentFrameCache = self.iioHandler.read(index=0)
+        #self.CurrentFrameCache = self.iioHandler.read(index=0)
+        #self.CurrentFrameCache = self.iioHandler.read(index=self.CurrentFrameIndex)
+        self.CurrentFrameCache = self.iioArray[self.CurrentFrameIndex]
         DEBUG(self.CurrentFrameIndex)
-        self.CurrentFrameCache = self.iioHandler.read(index=self.CurrentFrameIndex)
+        
 
         self.width:int  = 0
         self.height:int = 0
@@ -182,19 +207,25 @@ class MediaFile_t:
         elif (probeimage.ndim == 3):
             self.height, self.width,_ = probeimage.shape
 
+    def __del__(self):
+        self.iioHandler.close()
+        self.iioArray=[]
+        DEBUG("Old IIO Deleted")
 
     def UpdateCurrentFrame(self, frameNum:int):
         frameNum = frameNum if (frameNum < self.NFrames) else self.NFrames
         if(frameNum == self.CurrentFrameIndex):
             return
         self.CurrentFrameIndex = frameNum
-        self.CurrentFrameCache = self.iioHandler.read(index=self.CurrentFrameIndex)
+        #self.CurrentFrameCache = self.iioHandler.read(index=self.CurrentFrameIndex)
+        self.CurrentFrameCache = self.iioArray[self.CurrentFrameIndex]
 
         
     def currentTimeSeconds(self):
         return float(self.CurrentFrameIndex*self.durationSeconds/self.NFrames) if self.durationSeconds is not None else None
     
     def CountExactFrames(self, digitPower=0, base=0):
+        #Only useful for files that support random access. Usually, this isn't the case.
         idx:int=base
         increment=5**digitPower #If done in powers of 10, it takes many cycles for a single digit, if done for powers of 2, it takes many digits (digits are fixed in the code, so it will take longer for shorter videos)
 
