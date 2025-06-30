@@ -15,23 +15,23 @@ The algorithm looks for faces within each image/frame and dettects them with a g
 
 You may choose to donwscale the video before starting detecting faces to make it faster or correct some errors. You have the explanation in the textbox next to the option.
 
-Blurr method and size may also be chosen. Click export to export the video or images. Video loading and specially video defacing takes a while, so you may see progress bars and messages on the console window. In the future, messages will be shown on the bottom text of graphic interface.
+Blurr method and size may also be chosen. Click export to export the video or images. Video loading and specially video defacing takes a while, so you may see progress bars and messages on the console window. In the future, messages will be shown on the bottom text window of the graphic interface.
 
 
 ## Installation and GPU acceleration guide
 ### Windows
 In order to use the program, you need to install the Python programming language interpreter from its [webpage](www.python.org). 
 
-It is important to select the option "Add python.exe to PATH". This adds the program location to the PATH variable, which windows uses to search for important files or programs
+It is important to select the option "Add python.exe to PATH". This adds the program location to the PATH variable, which windows uses to search for important files or programs.
 
-Then, you must open the command line (write "cmd" in the windows menu search bar) to install the rewuiered packages usong "pip". Pip is a program that comes with python that allows to download and install complemenrs if they are not already installed. Write the following commands:
+Then, you must open the command line (write "cmd" in the windows menu search bar) to install the requiered packages using "pip". Pip is a program that comes with python that allows to download and install complements if they are not already installed. Write the following commands:
 
 ```console
 pip install deface   #original cmd-based deface program
 pip install PySide6  #Graphic User Interface tools
 ```
 
-Moreover, video prpcessing is too slow if done on the CPU, so it is better to use the graphics card. In windows you may use direct-ml:
+Moreover, video processing is too slow if done on the CPU, so it is better to use the graphics card. In windows you may use direct-ml:
 
 ```console
 pip install onnx onnxruntime-directml
@@ -42,9 +42,9 @@ Finally, if you have an NVIDIA graphics card and CUDA installed, you may instead
 pip install onnx onnxruntime-gpu
 ```
 
-To ensure the graphics card is being used instead of the CPU, use the Task Manager when processing a file
+To ensure the graphics card is being used instead of the CPU, once the installation is finished, use the "Performance" tab of the Task Manager while exporting a video file with the program to check for increased CPU or GPU activity.
 
-Finally, download the project folder and open (run) the file "./Deface-GUI_source/deface_GUI.py" with Python. You can download the latest version of the project by going to the Github page of the project, clicking on the green "< > Code" button and choosing to download the .zip file.
+Finally, download the project folder and open (run) the file "./Deface-GUI_source/deface_GUI.py" with Python. You can download the latest version of the project by going to the Github page of the project, clicking on the green "< > Code" button, choosing to download the .zip file, and uncompressing the file once downloaded.
 
 ![How to download latest version](Images/Download_latest_version.jpg)
 *Image showing how to download the latest version.*
