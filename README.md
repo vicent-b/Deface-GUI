@@ -9,13 +9,13 @@ This projet is a GUI for mdraw's "deface" command line tool with frame-per-frame
 This program is just a GUI for the command tool [deface](https://github.com/ORB-HD/deface/) by mdraw. You may find more projects on [https://github.com/vicent-b](https://github.com/vicent-b).
 
 ## Information:
-You may upload a single video or an image. The image on the right shows the conversion of a given image or video frame (that may be changed using the slider), while also showing the face detection confidence.
-The autoconvert button (soon to come) allows to select a bunch of files and convert them quickly with the current settings.
-The algorithm looks for faces within each image/frame and dettects them with a given confidence (0->1). They are blurred only if the confidence is above the chosen threshold. By changing the threshold you may elliminate false negatives (faces not detected as such) while minimising false positives (non-faces dettected as faces).
-You may donwscale the video before processing to make it faster or correct tome errors. You have the explanation in the textbox next to the option.
-Blurr method and size may also be chosen. Click export to export the video or images. Video defacing takes a while, so you may see the progress bar on the console window. 
+You may load a single video or an image. The image on the right shows the conversion of the image or a give video frame (which may be changed using the slider or de number box). The image is shown as it would be after it is processed. It also shows the face detection confidence, a number between 0 (0%) and 1 (100%) which shows the probability of a given area being a face.
 
+The algorithm looks for faces within each image/frame and dettects them with a given confidence (0->1). They are blurred only if the confidence is above the chosen threshold. By changing the threshold you may elliminate false negatives (faces not detected as such) while minimising false positives (non-faces dettected as faces). You can control the slidebar also pressing the arrow keys, allowing to quickly display de video frames at intervals of 0.5 seconds to quickly check if faces stop being blurred in some frames. It is recommended you inspect the final result after saving it.
 
+You may choose to donwscale the video before starting detecting faces to make it faster or correct some errors. You have the explanation in the textbox next to the option.
+
+Blurr method and size may also be chosen. Click export to export the video or images. Video loading and specially video defacing takes a while, so you may see progress bars and messages on the console window. In the future, messages will be shown on the bottom text of graphic interface.
 
 
 ## Installation and GPU acceleration guide
@@ -44,7 +44,10 @@ pip install onnx onnxruntime-gpu
 
 To ensure the graphics card is being used instead of the CPU, use the Task Manager when processing a file
 
-Finally, download the whole folder and open (run) "deface_GUI.py" with Python.
+Finally, download the project folder and open (run) the file "./Deface-GUI_source/deface_GUI.py" with Python. You can download the latest version of the project by going to the Github page of the project, clicking on the green "< > Code" button and choosing to download the .zip file.
+
+![How to download latest version](Images/Download_latest_version.jpg)
+*Image showing how to download the latest version.*
 
 ### Linux
 Let's be frank: I trust you are tech savvy enough to install Python and the listed dependencies for Windows users.
