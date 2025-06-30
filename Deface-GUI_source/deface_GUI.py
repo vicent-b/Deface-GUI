@@ -145,72 +145,166 @@ class MediaFile_t:
         self.FileNameNoExt:str=""
         self.Extension:str =""
         self.FileNameNoExt, self.Extension = os.path.splitext(self.FileName)
+        filetype=mimetypes.guess_type(FullPath)[0]
+        self.IsImage:bool = (filetype.startswith("image"))
+
+        self.durationSeconds:float = 0
+        self.NFrames:int = 0
+        self.framerate:float = 0
+
+        self.width:int  = 0
+        self.height:int = 0
+        self.channels:int = 0
+
+        self.iioHandler = None
+
+        self.estimatedUncompressedSizeBytes:int = 0
+
+        self.FrameCaches = [None, None] #Primary (fixed) and secondary (temporary) framecaches 
+
+
 
         video_container = av.open(FullPath)
         video_stream=next(s for s in video_container.streams if s.type == 'video')
-        self.durationSeconds:float = float(video_stream.duration * video_stream.time_base) if video_stream is not None and video_stream.duration is not None else None
+        self.durationSeconds = float(video_stream.duration * video_stream.time_base) if video_stream is not None and video_stream.duration is not None else None
         
         aproxNFrames:int = video_stream.frames
         if (aproxNFrames == 0 and video_stream.average_rate is not None):
             aproxNFrames == self.durationSeconds*video_stream.average_rate
         video_container.close()
 
-        filetype = mimetypes.guess_type(FullPath)[0]
-        self.IsImage:bool = (filetype.startswith("image"))
         
-        if not self.IsImage:
-            self.iioHandler = iio.imopen(FullPath, "r", plugin="pyav")
-        else:
-            self.iioHandler = iio.imopen(FullPath, "r")
+        self.iioHandler = self.get_new_iioHandler()
+        
 
         #DEPRECATED: Only useful for files that support random access to frames. This is not usuallythe case, this is why it has been substituted by loading the hole file onto RAM
         #if(aproxNFrames is None or aproxNFrames == 0):
         #    self.NFrames:int = self.CountExactFrames(6)
         #else:
         #    self.NFrames:int = self.CountExactFrames(math.floor(math.log(aproxNFrames, 5)))
-
-        self.iioArray=[]
-        if(self.IsImage):
-            self.iioArray = [self.iioHandler.read()]
-        else:
-            #self.iioArray =  self.iioHandler.read()
-            aproxNFramesStr:str = str(aproxNFrames) if aproxNFrames is not None and aproxNFrames > 0 else "???"
-            sys.stdout.write("\n")
-            i=1
-            for frame in self.iioHandler.iter():
-                self.iioArray.append(frame)
-                if(i==1 or i%10==0):
-                    sys.stdout.write("\r LOADING FRAMES: "+str(i)+" / "+aproxNFramesStr)
-                i=i+1
         
-        self.NFrames:int = len(self.iioArray)
 
-        if(not self.IsImage):
-            sys.stdout.write("\r LOADING FRAMES: "+str(self.NFrames)+" / "+str(self.NFrames))
+        self.NFrames = self.countExactFramesSequential(aproxNFrames)
+        
 
         DEBUG(self.NFrames)
 
-        self.framerate:float = self.NFrames/self.durationSeconds if self.durationSeconds is not None else None
+        self.framerate = self.NFrames/self.durationSeconds if self.durationSeconds is not None else None
         self.CurrentFrameIndex:int = 0 
         #self.CurrentFrameCache = self.iioHandler.read(index=0)
         #self.CurrentFrameCache = self.iioHandler.read(index=self.CurrentFrameIndex)
-        self.CurrentFrameCache = self.iioArray[self.CurrentFrameIndex]
+        self.CurrentFrameCache = self.getFrame(self.CurrentFrameIndex)
         DEBUG(self.CurrentFrameIndex)
         
 
-        self.width:int  = 0
-        self.height:int = 0
 
         probeimage=self.CurrentFrameCache
         if(probeimage.ndim == 2):
             self.height, self.width = probeimage.shape
+            self.channels = 1
         elif (probeimage.ndim == 3):
-            self.height, self.width,_ = probeimage.shape
+            self.height, self.width, self.channels = probeimage.shape
+        
+        self.estimatedUncompressedSizeBytes = self.width * self.height * self.channels * probeimage.dtype.itemsize * self.NFrames
+        print("Estimated uncompressed size: "+str(self.estimatedUncompressedSizeBytes/1024.0/1024.0/1024.0) + " GB")
+
+
+       
 
     def __del__(self):
         self.iioHandler.close()
-        self.iioArray=[]
+        self.resetFrameCaches()
         DEBUG("Old IIO Deleted")
+
+
+    def get_new_iioHandler(self):
+        if not self.IsImage:
+            local_iioHandler = iio.imopen(self.FullPath, "r", plugin="pyav")
+        else:
+            local_iioHandler = iio.imopen(self.FullPath, "r")
+        
+        return local_iioHandler
+
+    def resetFrameCache(self, cacheIndex:int):
+        self.FrameCaches[cacheIndex] = None
+
+    def resetFrameCaches(self):
+        for i in range(len(self.FrameCaches)):
+            self.resetFrameCache(i)
+
+    def cacheFrame(self, cacheIndex:int, index:int, frameData=None):
+        
+        if (self.FrameCaches[cacheIndex] is None):
+            self.FrameCaches[cacheIndex] = [None]*self.NFrames
+        
+        if (self.FrameCaches[cacheIndex][index] is None):
+            if (frameData is None):
+                self.FrameCaches[index] = self.iioHandler.read(index = index)
+            else:
+                self.FrameCaches[index] = frameData
+
+    def cacheFrames(self, cacheIndex:int, indexArr):
+        for i in indexArr:
+            self.cacheFrame(cacheIndex, i)
+
+    def cacheFramesLargeArr(self, cacheIndex, indexArr, progressfcn_j_tot_f_tot_stage = None):
+
+        fcn = progressfcn_j_tot_f_tot_stage
+
+        if (self.FrameCaches[cacheIndex] is None):
+            self.FrameCaches[cacheIndex] = [None]*self.NFrames
+
+        if(fcn is not None):
+            fcn(0, len(indexArr), 0, self.NFrames, 0)
+        
+
+        local_iioHandler = self.get_new_iioHandler()
+
+        framenum = 0
+        j = 0 # using j is much more efficient than "in indexArr"
+        for frame in local_iioHandler.iter():
+            if (j >= len(indexArr)):
+                break
+
+            if(framenum == indexArr[j]):
+
+                if(fcn is not None):
+                    fcn(j, len(indexArr), framenum, self.NFrames, 1)
+
+                if(self.FrameCaches[cacheIndex][framenum] is None):
+                    self.FrameCaches[cacheIndex][framenum] = frame
+
+                j=j+1
+            
+            framenum=framenum+1
+
+        local_iioHandler.close()
+
+        if(fcn is not None):
+            fcn(j-1, len(indexArr), indexArr[j-1], self.NFrames, 2)
+    
+
+
+    def getFrame(self, index:int, cacheFrame:bool = False, cacheIndex:int = 2):
+
+        f = None
+        foundInCache:bool = False
+
+        for i in range(len(self.FrameCaches)):
+            if(self.FrameCaches[i] is not None):
+                f=self.FrameCaches[i][index]
+                foundInCache = True if f is not None else False
+
+        if(f is None):
+            f = self.iioHandler.read(index=index)
+        
+        if(cacheFrame and not foundInCache):
+            self.cacheFrame(cacheIndex, index, f)
+        
+        return f
+
+
+
 
     def UpdateCurrentFrame(self, frameNum:int):
         frameNum = frameNum if (frameNum < self.NFrames) else self.NFrames
@@ -218,13 +312,13 @@ class MediaFile_t:
             return
         self.CurrentFrameIndex = frameNum
         #self.CurrentFrameCache = self.iioHandler.read(index=self.CurrentFrameIndex)
-        self.CurrentFrameCache = self.iioArray[self.CurrentFrameIndex]
+        self.CurrentFrameCache = self.getFrame(self.CurrentFrameIndex)
 
         
     def currentTimeSeconds(self):
         return float(self.CurrentFrameIndex*self.durationSeconds/self.NFrames) if self.durationSeconds is not None else None
     
-    def CountExactFrames(self, digitPower=0, base=0):
+    def countExactFrames(self, digitPower=0, base=0):
         #Only useful for files that support random access. Usually, this isn't the case.
         idx:int=base
         increment=5**digitPower #If done in powers of 10, it takes many cycles for a single digit, if done for powers of 2, it takes many digits (digits are fixed in the code, so it will take longer for shorter videos)
@@ -241,7 +335,24 @@ class MediaFile_t:
                 else:
                     return self.CountExactFrames(digitPower-1,idx_old)
             
+    def countExactFramesSequential(self, aproxNFrames):
 
+        aproxNFramesStr:str = str(aproxNFrames) if aproxNFrames is not None and aproxNFrames > 0 else "???"
+        sys.stdout.write("\n")
+
+        local_iioHandler = self.get_new_iioHandler()
+
+        i=0
+        for frame in local_iioHandler.iter():
+            i=i+1
+            if(i==1 or i%10==0):
+                sys.stdout.write("\r COUNTING FRAMES: "+str(i)+" / "+aproxNFramesStr)
+
+        sys.stdout.write("\r COUNTING FRAMES: "+str(i)+" / "+str(i)+"\n")
+
+        local_iioHandler.close()
+
+        return i
 
 
 ##GLOBAL VARS
@@ -276,13 +387,13 @@ RadioButtonCollection_BlurrMethod=[
 Displayer = DisplayManager(MainWindow.graphicsView_Preview)
 
 #thread coordination
-SEMAPHORE_spinBox_ScrollBar_Preview:bool = False #When frame number is edited, slider value is changed. When slider moves, new frame number is displayed. This semaphore ensures framenumber is not edited again when slider is changed is
+SEMAPHORE_spinBox_ScrollBar_Preview:bool = False #When frame number is edited, slider value is changed. When slider moves, new frame number is displayed on spingbox. This semaphore ensures spinbox frame number is not edited over again when slider position is set (as slidebar precision is worse than that of the spinbox) by blocking part of the code in horizontalSlider_UpdateTextAndValues()
 
 stdout_emitter:QS.streamEmitter = None
 stdout_receiver:QS.streamReceiver = None
 stdout_thread = None
 
-deface_thread = None
+deface_thread = None #Execute deface tool in a paralell thread
 
 #Consts
 ADMITTED_FILE_EXTENSIONS_PATTERN="Video (*.mov *.avo *.mpg *.mp4 *.mkv *.wmv);;Common images (*.jpg *.jpeg *.png *.tiff *.bmp);;Any files (*)"
@@ -396,7 +507,7 @@ def UpdateSlidebar(MF: MediaFile_t):
     
         MainWindow.horizontalSlider_Preview.setValue(0)       #not needed really
         MainWindow.horizontalSlider_Preview.setMinimum(0)
-        MainWindow.horizontalSlider_Preview.setMaximum(MF.durationSeconds*2)
+        MainWindow.horizontalSlider_Preview.setMaximum(math.floor(MF.durationSeconds*2))
         
         MainWindow.label_Preview_Current.setText(seconds_to_hhmmssmm(framenum2Seconds(MF.CurrentFrameIndex, MF)))
 
@@ -414,6 +525,40 @@ def DisplayCurrentResolution(W:int,H:int):
 
 #--------------------------------------------------------------------------------------------
 ##COMPLEX FUNCTIONS
+
+def GenerateNewMediaFile(filename:str):
+    global MediaFile
+
+    MediaFile = MediaFile_t(filename)
+    
+    #Display caching progress
+    def progressfcn_j_tot_f_tot_stage(j, jtot, f, ftot, stage):
+        if (stage == 0):
+            sys.stdout.write("\n")
+        if (stage == 1):
+            sys.stdout.write("\rLOADING FRAME Nº "+str(f)+" / "+str(ftot-1)+": "+str(j)+" of "+str(jtot-1))
+        if (stage == 2):
+            sys.stdout.write("\n")
+
+
+    MAX_GB = 2.0
+    if (not MediaFile.IsImage):
+        if (MediaFile.estimatedUncompressedSizeBytes/(1024.0**3) <= MAX_GB):
+            print("Size small enough (<="+str(MAX_GB)+"GB). Caching whole file in memory")
+            MediaFile.cacheFramesLargeArr(0, list(range(MediaFile.NFrames)), progressfcn_j_tot_f_tot_stage)
+            
+        elif (MediaFile.estimatedUncompressedSizeBytes/(1024.0**3)/(MediaFile.framerate/2.0) < MAX_GB): #2 is the slidebar steps per second
+            print("Medium file size. Caching in memory only frames that match slidebar. Expected size:" +str(MediaFile.estimatedUncompressedSizeBytes/(1024.0**3)/(MediaFile.framerate/2.0))+ " GB")
+            #Caculated in same way as in UpdateSlidebar()
+            max_slidebar = math.floor(MediaFile.durationSeconds*2)
+            indexes=list(range(max_slidebar+1))
+            for i in range(len(indexes)):
+                Pos= indexes[i]
+                value=float(Pos)/float(max_slidebar)
+                indexes[i] = round(value*(MediaFile.NFrames-1))
+            MediaFile.cacheFramesLargeArr(0, indexes, progressfcn_j_tot_f_tot_stage)
+        else:
+            print("File too big. No initial chaching done")
 
 
 def AnonimizeFrame(frame, DO:DefaceOptions_t, DrawScores:bool, dets=None):
@@ -550,7 +695,10 @@ def emulate_event_pushButtonLoadFile(filename):
         print("File type not accepted")
         return
 
-    MediaFile = MediaFile_t(filename)
+    GenerateNewMediaFile(filename)
+
+
+
     File_LastSelectedFolder_Load = MediaFile.Folder #remember folder
     MainWindow.lineEdit_OpenFile.setText(filename) #Write location up
 
@@ -748,6 +896,8 @@ def event_horizontalSlider_Preview_afterMoving(value):
     DEBUG("MOVED")
     if(MediaFile is None):
         DEBUG("MediaFile is None")
+        return
+    if(MediaFile.IsImage):
         return
     horizontalSlider_UpdateTextAndValues()
     UpdateDisplayedFrame_NewFrameSameFile(SlideBar2FrameNum(MediaFile))
