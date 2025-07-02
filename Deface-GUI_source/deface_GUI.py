@@ -58,12 +58,19 @@ class BlurrMethod_t(Enum):
 
 
 class Worker(QThread):
-    def __init__(self, fcn):
+
+    def __init__(self, fcn, finish_fcn=None):
         super().__init__()
-        self.fcn=fcn
+        self.LocalVarDictionary={} # LocalVarDictionary['myvariablename']=Value is used both to create and edit existing variables
+        self.fcn = fcn
+        self.finish_fcn = finish_fcn
+
+        if(self.finish_fcn is not None): #DO NOT USE MOVETOTHREAD OR WILL EXECUTE EVENT IN THE PARALELL THREAD OF RUN()
+            self.finished.connect(lambda: finish_fcn(self.LocalVarDictionary))
     
     def run(self) -> None:
-        self.fcn()
+        self.fcn(self.LocalVarDictionary)
+    
 
 
 class DefaceOptions_t:
@@ -393,7 +400,9 @@ stdout_emitter:QS.streamEmitter|None = None
 stdout_receiver:QS.streamReceiver|None = None
 stdout_thread = None
 
-deface_thread = None #Execute deface tool in a paralell thread
+loadfile_thread:Worker|None = None
+
+deface_thread:Worker|None = None #Execute deface tool in a paralell thread
 
 #Consts
 ADMITTED_FILE_EXTENSIONS_PATTERN = "Video (*.mov *.avo *.mpg *.mp4 *.mkv *.wmv);;Common images (*.jpg *.jpeg *.png *.tiff *.bmp);;Any files (*)"
@@ -639,7 +648,7 @@ def Threaded_CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str="") 
         print("\nPlease, wait for Deface to finish processing the previous file")
         return
 
-    thread_fcn = lambda:CallDeface(DO, MF, OutFilePath)
+    thread_fcn = lambda LocalVarDictionary: CallDeface(DO, MF, OutFilePath)
     deface_thread = Worker(thread_fcn) #don't overload editor thread
     deface_thread.start()
     DEBUG("DEFACE THREAD STARTED")
@@ -701,6 +710,7 @@ def horizontalSlider_UpdateTextAndValues() -> None:
 def emulate_event_pushButtonLoadFile(filename:str) -> None:
     #Remember update warning and numpages
     global MediaFile
+    global loadfile_thread
 
     if(filename == ""):
         return
@@ -710,20 +720,35 @@ def emulate_event_pushButtonLoadFile(filename:str) -> None:
         print("File type not accepted")
         return
 
-    MediaFile = GenerateNewMediaFile(filename)
 
-    AfterGenerateNewMediaFile(MediaFile)
 
+    #MediaFile = GenerateNewMediaFile(filename)
+    #AfterGenerateNewMediaFile(MediaFile)
+
+    def LoadThread(LocalVarDictionary):
+        LocalVarDictionary['MediaFile_paralell'] = GenerateNewMediaFile(filename)
+
+    def WhenLoadThreadFinished(LocalVarDictionary):
+        global MediaFile
+        MediaFile = LocalVarDictionary['MediaFile_paralell']
+        AfterGenerateNewMediaFile(MediaFile)
+
+    loadfile_thread = Worker(LoadThread, WhenLoadThreadFinished)
+    loadfile_thread.start()
 
 
 
 
     
 def event_pushButtonLoadFile():
+    global loadfile_thread
     global ADMITTED_FILE_EXTENSIONS_PATTERN 
     #Remember update warning and numpages
 
-    DEBUG("pushButtonLoad: pressed");
+    DEBUG("pushButtonLoad: pressed")
+    if(loadfile_thread is not None and loadfile_thread.isRunning() and not loadfile_thread.isFinished()):
+        print("\nPlease, wait for file to finish loading")
+        return
     fname = QFileDialog.getOpenFileName(None, 'Open file', "" ,ADMITTED_FILE_EXTENSIONS_PATTERN)
 
     filename = fname[0]
