@@ -62,7 +62,7 @@ class Worker(QThread):
         super().__init__()
         self.fcn=fcn
     
-    def run(self):
+    def run(self) -> None:
         self.fcn()
 
 
@@ -79,7 +79,7 @@ class DefaceOptions_t:
         self.MosaicSize:int = MosaicSize
         self.dets_cache = None
     
-    def set(self, DetectionThreshold:float = 0.2, BlurrSize:float = 1.3, RemoveAudioTracks:bool = False, Downscale:bool = False, DownscaleW:int = 1, DownscaleH:int = 1, BlurrShapeID:int = BlurrShape_t.ELLIPSE.value, BlurrMethodID:int = BlurrMethod_t.BLURR.value, MosaicSize:int=20):
+    def set(self, DetectionThreshold:float = 0.2, BlurrSize:float = 1.3, RemoveAudioTracks:bool = False, Downscale:bool = False, DownscaleW:int = 1, DownscaleH:int = 1, BlurrShapeID:int = BlurrShape_t.ELLIPSE.value, BlurrMethodID:int = BlurrMethod_t.BLURR.value, MosaicSize:int=20) -> None:
         self.DetectionThreshold = DetectionThreshold
         self.BlurrSize = BlurrSize
         self.RemoveAudioTracks = RemoveAudioTracks
@@ -91,12 +91,12 @@ class DefaceOptions_t:
         self.MosaicSize = MosaicSize
         self.dets_cache = None
     
-    def setDO(self, DO):
+    def setDO(self, DO) -> None:
         self.set(DO.DetectionThreshold, DO.BlurrSize, DO.RemoveAudioTracks, DO.Downscale, DO.DownscaleW, DO.DownscaleH, DO.BlurrShapeID, DO.BlurrMethodID, DO.MosaicSize)
 
         DEBUG("DO_SET")
 
-    def generateOptionsStringArray(self):
+    def generateOptionsStringArray(self) -> list[str]:
         varArray=[]
 
         varArray.append("--thresh")
@@ -126,7 +126,7 @@ class DefaceOptions_t:
         
         return varArray
     
-    def generateOptionsString(self):
+    def generateOptionsString(self) -> str:
         varArray=self.generateOptionsStringArray()
         varString:str=""
 
@@ -148,9 +148,9 @@ class MediaFile_t:
         filetype=mimetypes.guess_type(FullPath)[0]
         self.IsImage:bool = (filetype.startswith("image"))
 
-        self.durationSeconds:float = 0
+        self.durationSeconds:float|None = 0
         self.NFrames:int = 0
-        self.framerate:float = 0
+        self.framerate:float|None = 0
 
         self.width:int  = 0
         self.height:int = 0
@@ -225,14 +225,14 @@ class MediaFile_t:
         
         return local_iioHandler
 
-    def resetFrameCache(self, cacheIndex:int):
+    def resetFrameCache(self, cacheIndex:int) -> None:
         self.FrameCaches[cacheIndex] = None
 
-    def resetFrameCaches(self):
+    def resetFrameCaches(self) -> None:
         for i in range(len(self.FrameCaches)):
             self.resetFrameCache(i)
 
-    def cacheFrame(self, cacheIndex:int, index:int, frameData=None):
+    def cacheFrame(self, cacheIndex:int, index:int, frameData=None) -> None:
         
         if (self.FrameCaches[cacheIndex] is None):
             self.FrameCaches[cacheIndex] = [None]*self.NFrames
@@ -243,11 +243,11 @@ class MediaFile_t:
             else:
                 self.FrameCaches[index] = frameData
 
-    def cacheFrames(self, cacheIndex:int, indexArr):
+    def cacheFrames(self, cacheIndex:int, indexArr) -> None:
         for i in indexArr:
             self.cacheFrame(cacheIndex, i)
 
-    def cacheFramesLargeArr(self, cacheIndex, indexArr, progressfcn_j_tot_f_tot_stage = None):
+    def cacheFramesLargeArr(self, cacheIndex, indexArr, progressfcn_j_tot_f_tot_stage = None) -> None:
 
         fcn = progressfcn_j_tot_f_tot_stage
 
@@ -306,7 +306,7 @@ class MediaFile_t:
 
 
 
-    def UpdateCurrentFrame(self, frameNum:int):
+    def UpdateCurrentFrame(self, frameNum:int) -> None:
         frameNum = frameNum if (frameNum < self.NFrames) else self.NFrames
         if(frameNum == self.CurrentFrameIndex):
             return
@@ -315,10 +315,10 @@ class MediaFile_t:
         self.CurrentFrameCache = self.getFrame(self.CurrentFrameIndex)
 
         
-    def currentTimeSeconds(self):
+    def currentTimeSeconds(self) -> float:
         return float(self.CurrentFrameIndex*self.durationSeconds/self.NFrames) if self.durationSeconds is not None else None
     
-    def countExactFrames(self, digitPower=0, base=0):
+    def countExactFrames(self, digitPower:int=0, base:int=0) -> int:
         #Only useful for files that support random access. Usually, this isn't the case.
         idx:int=base
         increment=5**digitPower #If done in powers of 10, it takes many cycles for a single digit, if done for powers of 2, it takes many digits (digits are fixed in the code, so it will take longer for shorter videos)
@@ -333,9 +333,9 @@ class MediaFile_t:
                 if(digitPower==0):
                     return idx
                 else:
-                    return self.CountExactFrames(digitPower-1,idx_old)
+                    return self.countExactFrames(digitPower-1,idx_old)
             
-    def countExactFramesSequential(self, aproxNFrames):
+    def countExactFramesSequential(self, aproxNFrames:int|None) -> int:
 
         aproxNFramesStr:str = str(aproxNFrames) if aproxNFrames is not None and aproxNFrames > 0 else "???"
         sys.stdout.write("\n")
@@ -358,7 +358,7 @@ class MediaFile_t:
 ##GLOBAL VARS
 
 DefaceOptions:DefaceOptions_t = DefaceOptions_t()
-MediaFile:MediaFile_t = None
+MediaFile:MediaFile_t|None = None
 
 File_LastSelectedFolder_Load:str = ""
 File_LastSelectedFolder_Save:str = ""
@@ -389,29 +389,29 @@ Displayer = DisplayManager(MainWindow.graphicsView_Preview)
 #thread coordination
 SEMAPHORE_spinBox_ScrollBar_Preview:bool = False #When frame number is edited, slider value is changed. When slider moves, new frame number is displayed on spingbox. This semaphore ensures spinbox frame number is not edited over again when slider position is set (as slidebar precision is worse than that of the spinbox) by blocking part of the code in horizontalSlider_UpdateTextAndValues()
 
-stdout_emitter:QS.streamEmitter = None
-stdout_receiver:QS.streamReceiver = None
+stdout_emitter:QS.streamEmitter|None = None
+stdout_receiver:QS.streamReceiver|None = None
 stdout_thread = None
 
 deface_thread = None #Execute deface tool in a paralell thread
 
 #Consts
-ADMITTED_FILE_EXTENSIONS_PATTERN="Video (*.mov *.avo *.mpg *.mp4 *.mkv *.wmv);;Common images (*.jpg *.jpeg *.png *.tiff *.bmp);;Any files (*)"
+ADMITTED_FILE_EXTENSIONS_PATTERN = "Video (*.mov *.avo *.mpg *.mp4 *.mkv *.wmv);;Common images (*.jpg *.jpeg *.png *.tiff *.bmp);;Any files (*)"
 
 #--------------------------------------------------------------------------------------------
 ##BASIC UTIL FUNCTIONS
 
-def framenum2Seconds(NFrame, MF:MediaFile_t):
+def framenum2Seconds(NFrame, MF:MediaFile_t) -> float:
     return float(NFrame)/float(MF.NFrames-1)*MF.durationSeconds
 
-def seconds_to_hhmmssmm(sec):
+def seconds_to_hhmmssmm(sec:float) -> str:
     return str(datetime.timedelta(seconds=sec))
 
 
 #--------------------------------------------------------------------------------------------
 ##BASIC GUI FUNCTIONS
 
-def ManipulateStdoutQueue(queueElement):
+def ManipulateStdoutQueue(queueElement) -> None:
     global MainWindow
     s=queueElement[0]
     #MainWindow.textEdit_ConsoleOutput.append(s)
@@ -420,7 +420,7 @@ def ManipulateStdoutQueue(queueElement):
     MainWindow.textEdit_ConsoleOutput.moveCursor (QTextCursor.End)
 
 
-def OverloadStdout():
+def OverloadStdout() -> None:
     global stdout_emitter
     global stdout_receiver
     global stdout_thread
@@ -435,7 +435,7 @@ def OverloadStdout():
     stdout_thread.start()
 
 
-def ReadDefaceOptions(DO: DefaceOptions_t):
+def ReadDefaceOptions(DO: DefaceOptions_t) -> None:
     
     BlurrShapeID:int = 0
     BlurrMethodID:int = 0
@@ -464,7 +464,7 @@ def ReadDefaceOptions(DO: DefaceOptions_t):
 
     
     
-def SetDefaceOptions(DO: DefaceOptions_t):
+def SetDefaceOptions(DO: DefaceOptions_t) -> None:
     MainWindow.doubleSpinBox_DetThreshold.setValue(DO.DetectionThreshold)
     MainWindow.doubleSpinBox_BlurrSize.setValue(DO.BlurrSize)
     MainWindow.checkBox_RemoveAudioTracks.setChecked(DO.RemoveAudioTracks)
@@ -476,17 +476,16 @@ def SetDefaceOptions(DO: DefaceOptions_t):
     MainWindow.spinBox_MosaicSize.setValue(DO.MosaicSize)
     
 
-def SlideBar2FrameNum(MF:MediaFile_t, Slidebar=MainWindow.horizontalSlider_Preview):
+def SlideBar2FrameNum(MF:MediaFile_t, Slidebar=MainWindow.horizontalSlider_Preview) -> int:
     Pos=Slidebar.sliderPosition()
     value=float(Pos-Slidebar.minimum())/float(Slidebar.maximum()-Slidebar.minimum())
     return round(value*(MF.NFrames-1))
 
-def FrameNum2SlideBar(FrameNum:int, MF:MediaFile_t, Slidebar=MainWindow.horizontalSlider_Preview):
-    Pos=Slidebar.sliderPosition()
+def FrameNum2SlideBar(FrameNum:int, MF:MediaFile_t, Slidebar=MainWindow.horizontalSlider_Preview) -> int:
     value = float(FrameNum)/float(MF.NFrames-1)
     return round(value*(Slidebar.maximum()-Slidebar.minimum())+Slidebar.minimum())
 
-def UpdateSlidebar(MF: MediaFile_t):
+def UpdateSlidebar(MF: MediaFile_t) -> None:
     global MainWindow
     
     if(MF.IsImage):
@@ -518,7 +517,7 @@ def UpdateSlidebar(MF: MediaFile_t):
 
 
 
-def DisplayCurrentResolution(W:int,H:int):
+def DisplayCurrentResolution(W:int,H:int) -> None:
     global MainWindow
     MainWindow.lineEdit_OriginalRes.setText(str(W)+" x "+str(H))
 
@@ -562,7 +561,7 @@ def GenerateNewMediaFile(filename:str) -> MediaFile_t:
     return MF
 
 
-def AfterGenerateNewMediaFile(MF:MediaFile_t):
+def AfterGenerateNewMediaFile(MF:MediaFile_t) -> None:
     global MainWindow
     global File_LastSelectedFolder_Load
 
@@ -603,7 +602,7 @@ def AnonimizeFrame(frame, DO:DefaceOptions_t, DrawScores:bool, dets=None):
     
     return newframe
 
-def CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
+def CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str="") -> None:
     global deface_thread
     DEBUG("FILE CONVERTING")
     
@@ -634,7 +633,7 @@ def CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
     DEBUG("FILE CONVERTED")
 
 
-def Threaded_CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
+def Threaded_CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str="") -> None:
     global deface_thread
     if(deface_thread is not None and deface_thread.isRunning() and not deface_thread.isFinished()):
         print("\nPlease, wait for Deface to finish processing the previous file")
@@ -649,7 +648,7 @@ def Threaded_CallDeface(DO:DefaceOptions_t, MF:MediaFile_t, OutFilePath:str=""):
 ##--------------------------------------------------------------------------------------------
 ##GUI EVENTS (COMMON CODE)
 
-def UpdateDisplayedFrame_SameFrameNewParams(sameThreshold=False):
+def UpdateDisplayedFrame_SameFrameNewParams(sameThreshold:bool=False) -> None:
     global DefaceOptions
     global MediaFile
     global Displayer
@@ -659,7 +658,7 @@ def UpdateDisplayedFrame_SameFrameNewParams(sameThreshold=False):
     Displayer.DisplayIioImage(newFrame, False)
     DEBUG("FrameUpdated")
 
-def UpdateDisplayedFrame_NewFrameSameFile(frameNum:int):
+def UpdateDisplayedFrame_NewFrameSameFile(frameNum:int) -> None:
     global MediaFile
     global Displayer
     if(MediaFile is None):
@@ -669,7 +668,7 @@ def UpdateDisplayedFrame_NewFrameSameFile(frameNum:int):
     Displayer.DisplayIioImage(newFrame, False)
     DEBUG("FrameChanged")
 
-def UpdateDisplayedFrame_NewFrameNewFile(frameNum:int):
+def UpdateDisplayedFrame_NewFrameNewFile(frameNum:int) -> None:
     global MediaFile
     global Displayer
     if(MediaFile is None):
@@ -679,7 +678,7 @@ def UpdateDisplayedFrame_NewFrameNewFile(frameNum:int):
     Displayer.DisplayIioImage(newFrame, True)
     DEBUG("File and frame changed")
 
-def horizontalSlider_UpdateTextAndValues():
+def horizontalSlider_UpdateTextAndValues() -> None:
     global MainWindow
     global MediaFile
     global SEMAPHORE_spinBox_ScrollBar_Preview
@@ -699,7 +698,7 @@ def horizontalSlider_UpdateTextAndValues():
 
 #--------------------------------------------------------------------------------------------
 ##GUI EVENTS
-def emulate_event_pushButtonLoadFile(filename):
+def emulate_event_pushButtonLoadFile(filename:str) -> None:
     #Remember update warning and numpages
     global MediaFile
 
@@ -924,7 +923,7 @@ def event_spinBox_Preview_Current_Frame(value):
 
 #---------------------------------------------------------------------------------------------
 
-def Init():
+def Init() -> None:
     global deface_thread
     global MainWindow
     global RadioButtonCollection_BlurrShape

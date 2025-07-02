@@ -8,17 +8,17 @@ import numpy as np
 class DisplayManager():
 
     def __init__(self, view:QGraphicsView, useOpenGL:bool = True):
-        self.view:QGraphicsview = view
+        self.view:QGraphicsView = view
 
-        self.scene_cache:QGraphicsScene = None
-        self.pixmapItem_cache:QPixmap   = None
+        self.scene_cache:QGraphicsScene|None = None
+        self.pixmapItem_cache:QGraphicsPixmapItem|None = None
 
         self.usesOpenGL:bool = False #update in if
 
         if(useOpenGL):
             try:
                 view.setViewport(QOpenGLWidget())
-                self.usesOpenGL:bool = True
+                self.usesOpenGL = True
                 view.setBackgroundBrush(QColor(243,243,243))
                 print("Open GL used successfully")
             except:
@@ -29,7 +29,7 @@ class DisplayManager():
         self.zoom_handler.engage() #.reset() will be called later #event filter must be set to viewport AFTER viewport is changed to OpenGL
 
 
-    def ImageIO_to_QImage(self, image):
+    def ImageIO_to_QImage(self, image) -> QImage:
         #Convert imageio (NumPy) image to QImage, supporting grayscale, RGB, RGBA.
 
         if image.ndim == 2: #GRAYSCALE
@@ -54,10 +54,10 @@ class DisplayManager():
         raise ValueError(f"Unsupported image format with shape: {image.shape}")
 
 
-    def DisplayQImage(self, qimage, image_size_changed:bool = True):
+    def DisplayQImage(self, qimage:QImage, image_size_changed:bool = True) -> None:
         self.view.setUpdatesEnabled(False)
 
-        pixmap = QPixmap.fromImage(qimage)
+        pixmap:QPixmap = QPixmap.fromImage(qimage)
 
         self.view.setSceneRect(0,0,pixmap.width(), pixmap.height())
 
@@ -88,12 +88,12 @@ class DisplayManager():
         #self.view.update() #does not seem necessary. Updates anyway
 
 
-    def DisplayIioImage(self, iioimage, image_size_changed:bool = True):
+    def DisplayIioImage(self, iioimage, image_size_changed:bool = True) -> None:
         qimage = self.ImageIO_to_QImage(iioimage)
         self.DisplayQImage(qimage, image_size_changed)
 
 
-    def DisplayTextImage(self, text_HTML:str, textColor:QColor = QColor(160,160,160)):
+    def DisplayTextImage(self, text_HTML:str, textColor:QColor = QColor(160,160,160)) -> None:
 
         screenText = QGraphicsTextItem()
         screenText.setHtml(text_HTML)

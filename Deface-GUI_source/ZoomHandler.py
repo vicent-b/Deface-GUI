@@ -8,7 +8,7 @@ import sys
 
 # This object will handle zooming via an event filter
 class ZoomHandler(QObject):
-    def __init__(self, view:QGraphicsView, zoom_factor_step:float = 1.15, minimum_scale:float=None):
+    def __init__(self, view:QGraphicsView, zoom_factor_step:float = 1.15, minimum_scale:float|None = None):
         super().__init__(view)
         self.view:QGraphicsView = view
         self.zoom_factor_step:float = zoom_factor_step    # Factor to zoom in/out per wheel event
@@ -19,17 +19,17 @@ class ZoomHandler(QObject):
         self.already_connected:bool = False
 
     #Redefines characteristics when image changes 
-    def reset(self, view:QGraphicsView, zoom_factor_step:float = 1.15, minimum_scale:float=None, enabled:bool=False, already_connected:bool = None):
-        self.view:QGraphicsView = view
-        self.zoom_factor_step:float = zoom_factor_step    # Factor to zoom in/out per wheel event
+    def reset(self, view:QGraphicsView, zoom_factor_step:float = 1.15, minimum_scale:float|None = None, enabled:bool = False, already_connected:bool|None = None) -> None:
+        self.view = view
+        self.zoom_factor_step = zoom_factor_step    # Factor to zoom in/out per wheel event
 
-        self.minimum_scale:float = minimum_scale if minimum_scale is not None else view.transform().m11() #Assume image is configured to already fit in frame. Asume x zoom (m11) is equal to y zoom (m22)
-        self.current_zoom:float = minimum_scale if minimum_scale is not None else 1.0                     # Tracks the current zoom level
-        self.enabled:bool = enabled
-        self.already_connected:bool = already_connected if already_connected is not None else self.already_connected #if it connects as event every time image changes , it may add a lot of processing overhead
+        self.minimum_scale = minimum_scale if minimum_scale is not None else view.transform().m11() #Assume image is configured to already fit in frame. Asume x zoom (m11) is equal to y zoom (m22)
+        self.current_zoom = minimum_scale if minimum_scale is not None else 1.0                     # Tracks the current zoom level
+        self.enabled = enabled
+        self.already_connected = already_connected if already_connected is not None else self.already_connected #if it connects as event every time image changes , it may add a lot of processing overhead
 
 
-    def eventFilter(self, obj, event):
+    def eventFilter(self, obj, event) -> bool:
         # Handle only wheel events
         if self.enabled and event.type() == event.Type.Wheel and isinstance(event, QWheelEvent):
             # Optional: Only zoom when Ctrl is held (like many editors)
@@ -71,7 +71,7 @@ class ZoomHandler(QObject):
         return False  # Pass through other events
 
 
-    def engage(self):
+    def engage(self)  -> None:
         self.enabled = True
 
         # Set anchor policies to ensure zoom is mouse-aware
@@ -84,7 +84,7 @@ class ZoomHandler(QObject):
         self.already_connected = True
         self.view.viewport().installEventFilter(self)
     
-    def setEnabled(self, enabled:bool):
+    def setEnabled(self, enabled:bool)  -> None:
         self.enabled = enabled
 
         

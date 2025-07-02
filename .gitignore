@@ -1,5 +1,6 @@
 #This file contains the files and folders that will not be uploaded even if they change. I use it to discard cache files of python compilation and media files I use for testing
 
 /Deface-GUI_source/__pycache__
+/Deface-GUI_source/.mypy_cache
 /MyTestFiles
 /Deface-GUI_source/testbench_results
