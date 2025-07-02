@@ -526,10 +526,9 @@ def DisplayCurrentResolution(W:int,H:int):
 #--------------------------------------------------------------------------------------------
 ##COMPLEX FUNCTIONS
 
-def GenerateNewMediaFile(filename:str):
-    global MediaFile
+def GenerateNewMediaFile(filename:str) -> MediaFile_t:
 
-    MediaFile = MediaFile_t(filename)
+    MF = MediaFile_t(filename)
     
     #Display caching progress
     def progressfcn_j_tot_f_tot_stage(j, jtot, f, ftot, stage):
@@ -542,23 +541,44 @@ def GenerateNewMediaFile(filename:str):
 
 
     MAX_GB = 2.0
-    if (not MediaFile.IsImage):
-        if (MediaFile.estimatedUncompressedSizeBytes/(1024.0**3) <= MAX_GB):
+    if (not MF.IsImage):
+        if (MF.estimatedUncompressedSizeBytes/(1024.0**3) <= MAX_GB):
             print("Size small enough (<="+str(MAX_GB)+"GB). Caching whole file in memory")
-            MediaFile.cacheFramesLargeArr(0, list(range(MediaFile.NFrames)), progressfcn_j_tot_f_tot_stage)
+            MF.cacheFramesLargeArr(0, list(range(MF.NFrames)), progressfcn_j_tot_f_tot_stage)
             
-        elif (MediaFile.estimatedUncompressedSizeBytes/(1024.0**3)/(MediaFile.framerate/2.0) < MAX_GB): #2 is the slidebar steps per second
-            print("Medium file size. Caching in memory only frames that match slidebar. Expected size:" +str(MediaFile.estimatedUncompressedSizeBytes/(1024.0**3)/(MediaFile.framerate/2.0))+ " GB")
+        elif (MF.estimatedUncompressedSizeBytes/(1024.0**3)/(MF.framerate/2.0) < MAX_GB): #2 is the slidebar steps per second
+            print("Medium file size. Caching in memory only frames that match slidebar. Expected size:" +str(MF.estimatedUncompressedSizeBytes/(1024.0**3)/(MF.framerate/2.0))+ " GB")
             #Caculated in same way as in UpdateSlidebar()
-            max_slidebar = math.floor(MediaFile.durationSeconds*2)
+            max_slidebar = math.floor(MF.durationSeconds*2)
             indexes=list(range(max_slidebar+1))
             for i in range(len(indexes)):
                 Pos= indexes[i]
                 value=float(Pos)/float(max_slidebar)
-                indexes[i] = round(value*(MediaFile.NFrames-1))
-            MediaFile.cacheFramesLargeArr(0, indexes, progressfcn_j_tot_f_tot_stage)
+                indexes[i] = round(value*(MF.NFrames-1))
+            MF.cacheFramesLargeArr(0, indexes, progressfcn_j_tot_f_tot_stage)
         else:
             print("File too big. No initial chaching done")
+    
+    return MF
+
+
+def AfterGenerateNewMediaFile(MF:MediaFile_t):
+    global MainWindow
+    global File_LastSelectedFolder_Load
+
+    File_LastSelectedFolder_Load = MF.Folder #remember folder
+    MainWindow.lineEdit_OpenFile.setText(MF.FullPath) #Write location up
+
+    UpdateSlidebar(MediaFile)
+    DisplayCurrentResolution(MF.width, MF.height)
+    
+    MainWindow.spinBox_NewResW.setValue(MF.width)
+    MainWindow.spinBox_NewResH.setValue(MF.height)
+
+    UpdateDisplayedFrame_NewFrameNewFile(MF.CurrentFrameIndex)
+    
+    DEBUG("File_LastSelectedFolder_Load: " + File_LastSelectedFolder_Load)
+    DEBUG("MediaFile.FullPath: " + MF.FullPath)
 
 
 def AnonimizeFrame(frame, DO:DefaceOptions_t, DrawScores:bool, dets=None):
@@ -681,11 +701,7 @@ def horizontalSlider_UpdateTextAndValues():
 ##GUI EVENTS
 def emulate_event_pushButtonLoadFile(filename):
     #Remember update warning and numpages
-    global MainWindow
     global MediaFile
-    global File_LastSelectedFolder_Load
-    global ADMITTED_FILE_EXTENSIONS_PATTERN
-
 
     if(filename == ""):
         return
@@ -695,26 +711,17 @@ def emulate_event_pushButtonLoadFile(filename):
         print("File type not accepted")
         return
 
-    GenerateNewMediaFile(filename)
+    MediaFile = GenerateNewMediaFile(filename)
+
+    AfterGenerateNewMediaFile(MediaFile)
 
 
 
-    File_LastSelectedFolder_Load = MediaFile.Folder #remember folder
-    MainWindow.lineEdit_OpenFile.setText(filename) #Write location up
 
-    UpdateSlidebar(MediaFile)
-    DisplayCurrentResolution(MediaFile.width, MediaFile.height)
-    
-    MainWindow.spinBox_NewResW.setValue(MediaFile.width)
-    MainWindow.spinBox_NewResH.setValue(MediaFile.height)
-
-    UpdateDisplayedFrame_NewFrameNewFile(MediaFile.CurrentFrameIndex)
-    
-    DEBUG("File_LastSelectedFolder_Load: " + File_LastSelectedFolder_Load)
-    DEBUG("MediaFile.FullPath: " + MediaFile.FullPath)
 
     
-def event_pushButtonLoadFile(): 
+def event_pushButtonLoadFile():
+    global ADMITTED_FILE_EXTENSIONS_PATTERN 
     #Remember update warning and numpages
 
     DEBUG("pushButtonLoad: pressed");
